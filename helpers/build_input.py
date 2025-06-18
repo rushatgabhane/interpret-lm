@@ -1,0 +1,29 @@
+from models.models import Example
+from typing import List, Tuple, Union
+from transformers import GPT2Tokenizer
+
+
+def build_inputs(ex: Example, tok: GPT2Tokenizer) -> Tuple[
+    Union[List[int], Tuple[List[int], List[int]]],  # ctx_ids
+    List[int],  # attention mask
+    int,  # target id
+    int,  # foil id
+]:
+    """Return (ctx_ids, mask_ids, target_id, foil_id) for either template."""
+    if ex.is_one_prefix:
+        ctx_txt = f"{ex.one_prefix_prefix} {ex.one_prefix_word_good}"
+        ctx_ids = tok(ctx_txt, add_special_tokens=False)["input_ids"]
+
+        tgt_id = tok(f" {ex.one_prefix_word_good}", add_special_tokens=False)["input_ids"][0]
+        foil_id = tok(f" {ex.one_prefix_word_bad}", add_special_tokens=False)["input_ids"][0]
+        return ctx_ids, [1] * len(ctx_ids), tgt_id, foil_id
+
+    if ex.is_two_prefix:
+        g_ctx = f"{ex.two_prefix_prefix_good} {ex.two_prefix_word}"
+        b_ctx = f"{ex.two_prefix_prefix_bad} {ex.two_prefix_word}"
+        g_ids = tok(g_ctx, add_special_tokens=False)["input_ids"]
+        b_ids = tok(b_ctx, add_special_tokens=False)["input_ids"]
+        tok_id = tok(f" {ex.two_prefix_word}", add_special_tokens=False)["input_ids"][0]
+        return (g_ids, b_ids), [1] * len(g_ids), tok_id, tok_id
+
+    raise ValueError(f"{ex.UID}: Neither one-prefix nor two-prefix template?")
