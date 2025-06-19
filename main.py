@@ -14,10 +14,10 @@ def explanation_vectors(ex, ctx_ids, mask_ids, tgt, foil, model):
     if ex.is_one_prefix:
         g, e = saliency(model, ctx_ids, mask_ids, correct=tgt, foil=foil)
         return {
-            "GN": np.abs(l1_grad_norm(g)),
-            "GI": np.abs(input_x_gradient(g, e)),
+            "GN": np.abs(l1_grad_norm(g, normalize=True)),
+            "GI": np.abs(input_x_gradient(g, e, normalize=True)),
             "E": np.abs(
-                erasure_scores(model, ctx_ids, mask_ids, correct=tgt, foil=foil)
+                erasure_scores(model, ctx_ids, mask_ids, correct=tgt, foil=foil, normalize=True)
             ),
         }
     good_ids, bad_ids = ctx_ids
