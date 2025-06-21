@@ -103,6 +103,35 @@ def main():
             print(f"{expl}: {np.mean(metrics[(expl,m)]):.3f}")
 
 
+def visualize_explaination():
+    input = "Can you stop the dog from "
+    input_tokens = tok(input)['input_ids']
+    attention_ids = tok(input)['attention_mask']
+
+    target = "barking"
+    foil = "crying"
+    CORRECT_ID = tok(" "+ target)['input_ids'][0]
+    FOIL_ID = tok(" "+ foil)['input_ids'][0]
+
+    base_saliency_matrix, base_embd_matrix = saliency(model, input_tokens, attention_ids)
+    saliency_matrix, embd_matrix = saliency(model, input_tokens, attention_ids, foil=FOIL_ID)
+
+    # Input x gradient
+    base_explanation = input_x_gradient(base_saliency_matrix, base_embd_matrix, normalize=True)
+    contra_explanation = input_x_gradient(saliency_matrix, embd_matrix, normalize=True)
+
+    # Gradient norm
+    base_explanation = l1_grad_norm(base_saliency_matrix, normalize=True)
+    contra_explanation = l1_grad_norm(saliency_matrix, normalize=True)
+
+    # Erasure
+    base_explanation = erasure_scores(model, input_tokens, attention_ids, normalize=True)
+    contra_explanation = erasure_scores(model, input_tokens, attention_ids, correct=CORRECT_ID, foil=FOIL_ID, normalize=True)
+
+    visualize(np.array(base_explanation), tok, [input_tokens], print_text=True, title=f"Why did the model predict {target}?")
+    visualize(np.array(contra_explanation), tok, [input_tokens], print_text=True, title=f"Why did the model predict {target} instead of {foil}?")
+
 if __name__ == "__main__":
-    main()
+    # main()
+    visualize_explaination()
     print(f"\nSkipped {skip_count} examples with unexpected grad shapes.")
