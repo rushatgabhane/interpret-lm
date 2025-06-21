@@ -7,17 +7,44 @@ from helpers.build_input import build_inputs
 from helpers.metrics import dot_product, probes_needed, reciprocal_rank
 from helpers.get_device import get_device
 from helpers.gold_mask import evidence_mask  # NEW
-from lm_saliency import saliency, input_x_gradient, l1_grad_norm, erasure_scores
+from lm_saliency import (
+    saliency,
+    input_x_gradient,
+    l1_grad_norm,
+    erasure_scores,
+    visualize,
+)
+import numpy as np
+
+tok = GPT2Tokenizer.from_pretrained("gpt2")
+model = GPT2LMHeadModel.from_pretrained("gpt2").to(get_device())
+
+skip_count = 0
+processed_count = 0
 
 
 def explanation_vectors(ex, ctx_ids, mask_ids, tgt, foil, model):
+    global skip_count
+    global processed_count
+    processed_count += 1
+    if processed_count % 100 == 0:
+        print(f"processed count: {processed_count}")
     if ex.is_one_prefix:
         g, e = saliency(model, ctx_ids, mask_ids, correct=tgt, foil=foil)
+        if g.ndim != 2:
+            skip_count += 1
+            print(
+                f"UID: {ex.UID}, skipping — unexpected grad shape: {g.shape} skip count: {skip_count}, done count: {processed_count - skip_count}"
+            )
+            return None
+
         return {
             "GN": np.abs(l1_grad_norm(g, normalize=True)),
             "GI": np.abs(input_x_gradient(g, e, normalize=True)),
             "E": np.abs(
-                erasure_scores(model, ctx_ids, mask_ids, correct=tgt, foil=foil, normalize=True)
+                erasure_scores(
+                    model, ctx_ids, mask_ids, correct=tgt, foil=foil, normalize=True
+                )
             ),
         }
     good_ids, bad_ids = ctx_ids
@@ -35,9 +62,6 @@ def explanation_vectors(ex, ctx_ids, mask_ids, tgt, foil, model):
 
 
 def main():
-    tok = GPT2Tokenizer.from_pretrained("gpt2")
-    model = GPT2LMHeadModel.from_pretrained("gpt2").to(get_device())
-
     metrics = collections.defaultdict(list)
 
     for line in Path("data/a_dataset_for_testing.jsonl").open():
@@ -56,6 +80,9 @@ def main():
         vecs = explanation_vectors(ex, ctx_ids, mask_ids, tgt_id, foil_id, model)
 
         # -------- aggregate metrics --------
+        if vecs is None:
+            continue
+
         for name, v in vecs.items():
             L = min(len(v), len(gold))  # align lengths
             v, g = v[:L], gold[:L]
@@ -78,3 +105,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    print(f"\nSkipped {skip_count} examples with unexpected grad shapes.")

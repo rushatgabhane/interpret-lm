@@ -46,7 +46,7 @@ def evidence_mask(ex, prefix_ids: list[int], tokenizer):
     doc = nlp(ex.sentence_good)
 
     # 1 ─ Subject-verb agreement → nominal subject
-    if ex.UID.startswith("subject_verb_agreement"):
+    if "subject_verb_agreement" in ex.UID:
         root = next((t for t in doc if t.dep_ == "ROOT"), None)
         subj = next(
             (c for c in root.children if c.dep_ in {"nsubj", "nsubjpass"}), None
@@ -57,7 +57,7 @@ def evidence_mask(ex, prefix_ids: list[int], tokenizer):
                 gold[j] = 1
 
     # 2 ─ Determiner-noun agreement → determiner token
-    elif ex.UID.startswith("determiner_noun"):
+    elif "determiner_noun" in ex.UID:
         det = next((t for t in doc if t.dep_ == "det"), None)
         if det:
             j = first_subtok_idx(det.text, prefix_ids, tokenizer)
@@ -84,7 +84,7 @@ def evidence_mask(ex, prefix_ids: list[int], tokenizer):
             gold[j] = 1
 
     # 4 ─ NPI licensing → the NPI word itself
-    elif ex.UID.startswith("npi_"):
+    elif "npi" in ex.UID.lower():
         npi_tok = next((t for t in doc if t.text.lower() in NPI), None)
         if npi_tok:
             j = first_subtok_idx(npi_tok.text, prefix_ids, tokenizer)
